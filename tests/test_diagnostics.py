@@ -19,6 +19,7 @@ from reports.report_generator import generate_markdown_report, generate_json_rep
 # ── DNS Tests ────────────────────────────────────────────────────────────────
 
 class TestDNS:
+    @pytest.mark.network
     def test_resolve_known_domain(self):
         result = resolve_domain("google.com")
         assert result.resolvable is True
@@ -30,6 +31,7 @@ class TestDNS:
         assert result.resolvable is False
         assert result.error is not None
 
+    @pytest.mark.network
     def test_bulk_dns_check(self):
         domains = ["google.com", "github.com"]
         results = bulk_dns_check(domains)
@@ -77,12 +79,14 @@ class TestPortScanner:
 # ── HTTP Tests ────────────────────────────────────────────────────────────────
 
 class TestHTTP:
+    @pytest.mark.network
     def test_check_valid_endpoint(self):
         result = check_endpoint("https://httpbin.org/get", timeout=10)
         assert result.reachable is True
         assert result.status_code == 200
         assert result.response_ms is not None
 
+    @pytest.mark.network
     def test_check_http_not_found(self):
         result = check_endpoint("https://httpbin.org/status/404", timeout=10)
         assert result.status_code == 404
@@ -107,6 +111,7 @@ class TestHTTP:
 # ── TCP Ping Tests ────────────────────────────────────────────────────────────
 
 class TestPing:
+    @pytest.mark.network
     def test_tcp_ping_reachable(self):
         result = ping_tcp("google.com", port=80, timeout=5)
         assert result.reachable is True

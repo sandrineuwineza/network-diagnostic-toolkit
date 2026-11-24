@@ -2,6 +2,7 @@
 
 > A professional Python-based network troubleshooting tool for Technical Support Engineers — available as both a CLI and a modern web dashboard.
 
+[![Tests](https://github.com/sandrineuwineza/network-diagnostic-toolkit/actions/workflows/tests.yml/badge.svg)](https://github.com/sandrineuwineza/network-diagnostic-toolkit/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.0-black?logo=flask)](https://flask.palletsprojects.com)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -147,7 +148,8 @@ network-diagnostic-toolkit/
 │   └── index.html              # Web dashboard (single-file SPA)
 │
 └── tests/
-    └── test_diagnostics.py     # pytest unit + integration tests
+    ├── test_diagnostics.py     # pytest unit + integration tests
+    └── test_target_guard.py    # input validation and SSRF protection tests
 ```
 
 ---
@@ -181,6 +183,9 @@ curl -X POST http://localhost:5000/api/dns \
 # Run all tests
 python -m pytest tests/ -v
 
+# Offline (skip tests that need internet access)
+python -m pytest tests/ -v -m "not network"
+
 # Run with coverage report
 python -m pytest tests/ -v --cov=. --cov-report=html
 
@@ -198,7 +203,7 @@ python -m pytest tests/ -v -k TestDNS
 2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
 3. Select `network-diagnostic-toolkit`
 4. Railway auto-detects the `Procfile` and deploys
-5. Your app is live at `https://your-app.up.railway.app`
+5. Railway shows your public URL under **Settings → Networking → Generate Domain**
 
 > Railway free tier: 500 hours/month · No credit card required for hobby plan.
 
@@ -212,13 +217,15 @@ python -m pytest tests/ -v -k TestDNS
 
 > Render free tier: Sleeps after 15 min inactivity · Wakes on request · No cost.
 
-### Option C — Local with Docker (optional)
+---
 
-```bash
-# Build and run
-docker build -t netdiag .
-docker run -p 5000:5000 netdiag
-```
+## 🔒 Security
+
+The dashboard runs every check from the server it is deployed on, so public deployments are protected by `diagnostics/target_guard.py`:
+
+- **Input validation:** hosts must be valid domain names or IP addresses; values starting with `-` are rejected, so they can never be read as `ping` or `traceroute` options.
+- **SSRF protection:** private, loopback, link-local and reserved addresses (including the cloud metadata address `169.254.169.254`) are blocked, and URLs must use `http` or `https`.
+- **Local use:** to diagnose your own network, run the dashboard with `ALLOW_PRIVATE_TARGETS=1`. The CLI (`main.py`) is not affected.
 
 ---
 
@@ -226,7 +233,7 @@ docker run -p 5000:5000 netdiag
 
 ```
 Networking:       TCP/IP · DNS · ICMP · HTTP/HTTPS · TLS/SSL
-                  VLANs · Port scanning · Traceroute · CCNA
+                  Port scanning · Traceroute · Input validation · SSRF protection
 Python:           socket · subprocess · urllib · concurrent.futures
                   dataclasses · argparse · Flask · pytest
 Engineering:      Modular architecture · error handling

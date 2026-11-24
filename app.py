@@ -18,12 +18,23 @@ from diagnostics import (
     check_endpoint, bulk_check, traceroute
 )
 from reports import generate_markdown_report, generate_json_report
+from diagnostics.target_guard import TargetError, validate_host, validate_url
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 
 
 # ── Web Routes ────────────────────────────────────────────────────────────────
+
+@app.errorhandler(TargetError)
+def handle_target_error(error):
+    return jsonify({"error": str(error)}), 400
+
+
+@app.errorhandler(ValueError)
+def handle_value_error(error):
+    return jsonify({"error": f"invalid input: {error}"}), 400
+
 
 @app.route("/")
 def index():
@@ -46,9 +57,7 @@ def health():
 @app.route("/api/ping", methods=["POST"])
 def api_ping():
     data = request.get_json(silent=True) or {}
-    host = data.get("host", "").strip()
-    if not host:
-        return jsonify({"error": "host is required"}), 400
+    host = validate_host(data.get("host", ""))
 
     count   = min(int(data.get("count", 4)), 8)
     timeout = min(int(data.get("timeout", 3)), 10)
@@ -73,9 +82,7 @@ def api_ping():
 @app.route("/api/dns", methods=["POST"])
 def api_dns():
     data   = request.get_json(silent=True) or {}
-    domain = data.get("domain", "").strip()
-    if not domain:
-        return jsonify({"error": "domain is required"}), 400
+    domain = validate_host(data.get("domain", ""), check_public=False)
 
     result = resolve_domain(domain)
     return jsonify({
@@ -94,9 +101,7 @@ def api_dns():
 @app.route("/api/ports", methods=["POST"])
 def api_ports():
     data = request.get_json(silent=True) or {}
-    host = data.get("host", "").strip()
-    if not host:
-        return jsonify({"error": "host is required"}), 400
+    host = validate_host(data.get("host", ""))
 
     ports   = data.get("ports")
     group   = data.get("group")
@@ -126,9 +131,7 @@ def api_ports():
 @app.route("/api/http", methods=["POST"])
 def api_http():
     data = request.get_json(silent=True) or {}
-    url  = data.get("url", "").strip()
-    if not url:
-        return jsonify({"error": "url is required"}), 400
+    url  = validate_url(data.get("url", ""))
 
     timeout = min(int(data.get("timeout", 10)), 15)
     result  = check_endpoint(url, timeout=timeout)
@@ -163,9 +166,7 @@ def api_http():
 @app.route("/api/traceroute", methods=["POST"])
 def api_traceroute():
     data = request.get_json(silent=True) or {}
-    host = data.get("host", "").strip()
-    if not host:
-        return jsonify({"error": "host is required"}), 400
+    host = validate_host(data.get("host", ""))
 
     max_hops = min(int(data.get("max_hops", 20)), 30)
     timeout  = min(int(data.get("timeout", 3)), 5)
@@ -192,9 +193,7 @@ def api_traceroute():
 def api_full_scan():
     """Run all diagnostics against a host and return a combined report."""
     data = request.get_json(silent=True) or {}
-    host = data.get("host", "").strip()
-    if not host:
-        return jsonify({"error": "host is required"}), 400
+    host = validate_host(data.get("host", ""))
 
     timeout = min(int(data.get("timeout", 5)), 10)
     report  = {"target": host, "timestamp": datetime.now(timezone.utc).isoformat()}
